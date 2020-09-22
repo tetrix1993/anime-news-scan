@@ -35,6 +35,7 @@ def scan_mocanews():
             with open(MOCA_NEWS_CACHE_OUTPUT, 'r') as f:
                 latest_id = f.read()
 
+        scan_count = 0
         soup = get_soup('https://moca-news.net/', encoding='shift_jis')
         linkblocks = soup.find('div', id='main-area').find_all('div', class_='linkblock')
         for linkblock in reversed(linkblocks):
@@ -49,8 +50,10 @@ def scan_mocanews():
                     if fontbold_div:
                         with open(MOCA_NEWS_OUTPUT, 'a+', encoding='utf-8', errors='ignore') as f:
                             f.write(id + ' ' + fontbold_div.text[2:] + '\n')
+                        scan_count += 1
         with open(MOCA_NEWS_CACHE_OUTPUT, 'w+') as f:
             f.write(latest_id)
+        print('Moca News - Item(s) scanned: ' + str(scan_count))
     except Exception as e:
         print('Error in Moca News')
         print(e)
