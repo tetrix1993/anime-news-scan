@@ -13,6 +13,7 @@ ANIVERSE_CACHE_OUTPUT = CACHE_FOLDER + '/aniverse'
 MOCA_NEWS_CACHE_OUTPUT = CACHE_FOLDER + '/mocanews'
 WEBNEWTYPE_CACHE_OUTPUT = CACHE_FOLDER + '/webnewtype'
 
+ANIVERSE_MAX_PAGE = 20
 WEBNEWTYPE_MAX_PAGE = 10
 
 
@@ -28,6 +29,55 @@ def get_soup(url, headers=None, encoding=None):
     except Exception as e:
         print(e)
     return ""
+
+
+def scan_aniverse():
+    try:
+        last_latest_id = 0
+        if os.path.exists(ANIVERSE_CACHE_OUTPUT):
+            with open(ANIVERSE_CACHE_OUTPUT, 'r') as f:
+                last_latest_id = int(f.read())
+
+        latest_id = last_latest_id
+        stop = False
+        obj_list = []
+        for page in range(1, ANIVERSE_MAX_PAGE + 1, 1):
+            soup = get_soup('https://aniverse-mag.com/archives/category/aniverse/news/page/%s' % str(page))
+            cb_main = soup.find('div', class_='cb-main')
+            if cb_main:
+                articles = cb_main.find_all('article')
+                for article in articles:
+                    if article.has_attr('id'):
+                        article_id = article['id'].replace('post-', '').strip()
+                        try:
+                            if int(article_id) > last_latest_id:
+                                if int(article_id) > latest_id:
+                                    latest_id = int(article_id)
+                                h2_tag = article.find('h2')
+                                if h2_tag is None:
+                                    continue
+                                a_tag = h2_tag.find('a')
+                                if a_tag:
+                                    obj_list.append({'id': article_id, 'title': a_tag.text.strip()})
+                            else:
+                                stop = True
+                                break
+                        except:
+                            stop = True
+                            break
+            if stop:
+                break
+
+        with open(ANIVERSE_OUTPUT, 'a+', encoding='utf-8', errors='ignore') as f:
+            for obj in reversed(obj_list):
+                f.write(obj['id'] + ' ' + obj['title'] + '\n')
+
+        with open(ANIVERSE_CACHE_OUTPUT, 'w+', encoding='utf-8') as f:
+            f.write(str(latest_id))
+        print('Aniverse - Item(s) scanned: ' + str(len(obj_list)))
+    except Exception as e:
+        print('Error in Aniverse')
+        print(e)
 
 
 def scan_mocanews():
@@ -109,6 +159,7 @@ def run():
         os.makedirs(OUTPUT_FOLDER)
     if not os.path.exists(CACHE_FOLDER):
         os.makedirs(CACHE_FOLDER)
+    scan_aniverse()
     scan_mocanews()
     scan_webnewtype()
 
