@@ -13,6 +13,8 @@ ANIVERSE_CACHE_OUTPUT = CACHE_FOLDER + '/aniverse'
 MOCA_NEWS_CACHE_OUTPUT = CACHE_FOLDER + '/mocanews'
 WEBNEWTYPE_CACHE_OUTPUT = CACHE_FOLDER + '/webnewtype'
 
+WEBNEWTYPE_MAX_PAGE = 10
+
 
 def get_soup(url, headers=None, encoding=None):
     if headers == None:
@@ -59,12 +61,56 @@ def scan_mocanews():
         print(e)
 
 
+def scan_webnewtype():
+    try:
+        last_latest_date = '1900年01月01日 00:00配信'
+        if os.path.exists(WEBNEWTYPE_CACHE_OUTPUT):
+            with open(WEBNEWTYPE_CACHE_OUTPUT, 'r', encoding='utf-8') as f:
+                last_latest_date = f.read()
+
+        latest_date = last_latest_date
+        stop = False
+        obj_list = []
+        for page in range(1, WEBNEWTYPE_MAX_PAGE + 1, 1):
+            soup = get_soup('https://webnewtype.com/news/all/%s/' % str(page))
+            section = soup.find('section', id='newsList')
+            if section:
+                lis = section.find_all('li')
+                for li in lis:
+                    a_tag = li.find('a')
+                    news_date = li.find('span', class_='newsDate')
+                    if a_tag and a_tag['href'] and news_date and news_date.text.strip() > last_latest_date:
+                        if news_date.text.strip() > latest_date:
+                            latest_date = news_date.text.strip()
+                        article_id = a_tag['href'].split('/')[-2]
+                        news_title = li.find('p', class_='newsTitle')
+                        obj_list.append({'id': article_id, 'date': news_date.text.strip(),
+                                         'title': news_title.text.strip()})
+                    else:
+                        stop = True
+                        break
+            if stop:
+                break
+
+        with open(WEBNEWTYPE_OUTPUT, 'a+', encoding='utf-8', errors='ignore') as f:
+            for obj in reversed(obj_list):
+                f.write(obj['id'] + ' ' + obj['date'] + ' ' + obj['title'] + '\n')
+
+        with open(WEBNEWTYPE_CACHE_OUTPUT, 'w+', encoding='utf-8') as f:
+            f.write(latest_date)
+        print('WebNewType - Item(s) scanned: ' + str(len(obj_list)))
+    except Exception as e:
+        print('Error in WebNewType')
+        print(e)
+
+
 def run():
     if not os.path.exists(OUTPUT_FOLDER):
         os.makedirs(OUTPUT_FOLDER)
     if not os.path.exists(CACHE_FOLDER):
         os.makedirs(CACHE_FOLDER)
     scan_mocanews()
+    scan_webnewtype()
 
 
 if __name__ == '__main__':
