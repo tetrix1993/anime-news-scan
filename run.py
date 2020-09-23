@@ -42,7 +42,7 @@ def scan_aniverse():
         stop = False
         obj_list = []
         for page in range(1, ANIVERSE_MAX_PAGE + 1, 1):
-            soup = get_soup('https://aniverse-mag.com/archives/category/aniverse/news/page/%s' % str(page))
+            soup = get_soup('https://aniverse-mag.com/archives/category/aniverse/page/%s' % str(page))
             cb_main = soup.find('div', class_='cb-main')
             if cb_main:
                 articles = cb_main.find_all('article')
