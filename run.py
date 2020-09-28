@@ -16,6 +16,8 @@ WEBNEWTYPE_CACHE_OUTPUT = CACHE_FOLDER + '/webnewtype'
 ANIVERSE_MAX_PAGE = 20
 WEBNEWTYPE_MAX_PAGE = 10
 
+ANIVERSE_CACHE_ID_LIMIT = 20
+
 
 def get_soup(url, headers=None, encoding=None):
     if headers == None:
@@ -33,12 +35,13 @@ def get_soup(url, headers=None, encoding=None):
 
 def scan_aniverse():
     try:
-        last_latest_id = 0
+        last_latest_ids = []
         if os.path.exists(ANIVERSE_CACHE_OUTPUT):
             with open(ANIVERSE_CACHE_OUTPUT, 'r') as f:
-                last_latest_id = int(f.read())
+                last_latest_ids = f.read().split(';')
 
-        latest_id = last_latest_id
+        latest_ids = last_latest_ids.copy()
+        new_ids = []
         stop = False
         obj_list = []
         for page in range(1, ANIVERSE_MAX_PAGE + 1, 1):
@@ -50,9 +53,9 @@ def scan_aniverse():
                     if article.has_attr('id'):
                         article_id = article['id'].replace('post-', '').strip()
                         try:
-                            if int(article_id) > last_latest_id:
-                                if int(article_id) > latest_id:
-                                    latest_id = int(article_id)
+                            if article_id not in last_latest_ids:
+                                if article_id not in latest_ids:
+                                    new_ids += [article_id]
                                 h2_tag = article.find('h2')
                                 if h2_tag is None:
                                     continue
@@ -72,8 +75,13 @@ def scan_aniverse():
             for obj in reversed(obj_list):
                 f.write(obj['id'] + ' ' + obj['title'] + '\n')
 
+        latest_ids = new_ids + latest_ids
         with open(ANIVERSE_CACHE_OUTPUT, 'w+', encoding='utf-8') as f:
-            f.write(str(latest_id))
+            for i in range(min(len(latest_ids), ANIVERSE_CACHE_ID_LIMIT)):
+                if i > 0:
+                    f.write(';' + latest_ids[i])
+                else:
+                    f.write(latest_ids[i])
         print('Aniverse - Item(s) scanned: ' + str(len(obj_list)))
     except Exception as e:
         print('Error in Aniverse')
