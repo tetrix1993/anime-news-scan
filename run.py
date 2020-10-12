@@ -1,5 +1,6 @@
 import requests
 import os
+from multiprocessing import Pool
 from bs4 import BeautifulSoup as bs
 
 
@@ -162,14 +163,24 @@ def scan_webnewtype():
         print(e)
 
 
+def run_process(fn):
+    fn()
+
+
 def run():
     if not os.path.exists(OUTPUT_FOLDER):
         os.makedirs(OUTPUT_FOLDER)
     if not os.path.exists(CACHE_FOLDER):
         os.makedirs(CACHE_FOLDER)
-    scan_aniverse()
-    scan_mocanews()
-    scan_webnewtype()
+
+    fns = [scan_aniverse, scan_mocanews, scan_webnewtype]
+    with Pool(3) as p:
+        results = []
+        for fn in fns:
+            result = p.apply_async(run_process, (fn,))
+            results.append(result)
+        for result in results:
+            result.wait()
 
 
 if __name__ == '__main__':
