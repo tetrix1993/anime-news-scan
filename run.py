@@ -7,17 +7,21 @@ from bs4 import BeautifulSoup as bs
 OUTPUT_FOLDER = 'out'
 ANIVERSE_OUTPUT = OUTPUT_FOLDER + '/aniverse.txt'
 MOCA_NEWS_OUTPUT = OUTPUT_FOLDER + '/mocanews.txt'
+NATALIE_OUTPUT = OUTPUT_FOLDER + '/natalie.txt'
 WEBNEWTYPE_OUTPUT = OUTPUT_FOLDER + '/webnewtype.txt'
 
 CACHE_FOLDER = 'cache'
 ANIVERSE_CACHE_OUTPUT = CACHE_FOLDER + '/aniverse'
 MOCA_NEWS_CACHE_OUTPUT = CACHE_FOLDER + '/mocanews'
+NATALIE_CACHE_OUTPUT = CACHE_FOLDER + '/natalie'
 WEBNEWTYPE_CACHE_OUTPUT = CACHE_FOLDER + '/webnewtype'
 
 ANIVERSE_MAX_PAGE = 20
+NATALIE_MAX_PAGE = 10
 WEBNEWTYPE_MAX_PAGE = 10
 
 ANIVERSE_CACHE_ID_LIMIT = 20
+NATALIE_CACHE_ID_LIMIT = 20
 
 
 def get_soup(url, headers=None, encoding=None):
@@ -120,6 +124,65 @@ def scan_mocanews():
         print(e)
 
 
+def scan_natalie():
+    try:
+        last_latest_ids = []
+        if os.path.exists(NATALIE_CACHE_OUTPUT):
+            with open(NATALIE_CACHE_OUTPUT, 'r') as f:
+                last_latest_ids = f.read().split(';')
+
+        latest_ids = last_latest_ids.copy()
+        new_ids = []
+        stop = False
+        obj_list = []
+        for page in range(1, ANIVERSE_MAX_PAGE + 1, 1):
+            soup = get_soup('https://natalie.mu/comic/news/list/page/%s' % str(page))
+            cb_main = soup.find('div', class_='NA_card_wrapper')
+            if cb_main:
+                articles = cb_main.find_all('div', class_='NA_card-l')
+                for article in articles:
+                    a_tags = article.find_all('a')
+                    a_tag = None
+                    for tag in a_tags:
+                        if tag.has_attr('href') and 'news' in tag['href']:
+                            a_tag = tag
+                    if a_tag and a_tag.has_attr('href'):
+                        article_id = a_tag['href'].split('/')[-1]
+                        try:
+                            if article_id not in last_latest_ids:
+                                if article_id not in latest_ids:
+                                    new_ids += [article_id]
+                                title = article.find('p', class_='NA_card_title')
+                                if title is None:
+                                    continue
+                                if a_tag:
+                                    obj_list.append({'id': article_id, 'title': title.text.strip()})
+                            else:
+                                stop = True
+                                break
+                        except:
+                            stop = True
+                            break
+            if stop:
+                break
+
+        with open(NATALIE_OUTPUT, 'a+', encoding='utf-8', errors='ignore') as f:
+            for obj in reversed(obj_list):
+                f.write(obj['id'] + ' ' + obj['title'] + '\n')
+
+        latest_ids = new_ids + latest_ids
+        with open(NATALIE_CACHE_OUTPUT, 'w+', encoding='utf-8') as f:
+            for i in range(min(len(latest_ids), NATALIE_CACHE_ID_LIMIT)):
+                if i > 0:
+                    f.write(';' + latest_ids[i])
+                else:
+                    f.write(latest_ids[i])
+        print('Natalie - Item(s) scanned: ' + str(len(obj_list)))
+    except Exception as e:
+        print('Error in Natalie')
+        print(e)
+
+
 def scan_webnewtype():
     try:
         last_latest_date = '1900年01月01日 00:00配信'
@@ -173,7 +236,7 @@ def run():
     if not os.path.exists(CACHE_FOLDER):
         os.makedirs(CACHE_FOLDER)
 
-    fns = [scan_aniverse, scan_mocanews, scan_webnewtype]
+    fns = [scan_aniverse, scan_mocanews, scan_natalie, scan_webnewtype]
     with Pool(3) as p:
         results = []
         for fn in fns:
