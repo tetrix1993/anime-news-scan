@@ -135,7 +135,7 @@ def scan_natalie():
         new_ids = []
         stop = False
         obj_list = []
-        for page in range(1, ANIVERSE_MAX_PAGE + 1, 1):
+        for page in range(1, NATALIE_MAX_PAGE + 1, 1):
             soup = get_soup('https://natalie.mu/comic/news/list/page/%s' % str(page))
             cb_main = soup.find('div', class_='NA_card_wrapper')
             if cb_main:
