@@ -5,21 +5,25 @@ from bs4 import BeautifulSoup as bs
 
 
 OUTPUT_FOLDER = 'out'
+ANIME_RECORDER_OUTPUT = OUTPUT_FOLDER + '/animerecorder.txt'
 ANIVERSE_OUTPUT = OUTPUT_FOLDER + '/aniverse.txt'
 MOCA_NEWS_OUTPUT = OUTPUT_FOLDER + '/mocanews.txt'
 NATALIE_OUTPUT = OUTPUT_FOLDER + '/natalie.txt'
 WEBNEWTYPE_OUTPUT = OUTPUT_FOLDER + '/webnewtype.txt'
 
 CACHE_FOLDER = 'cache'
+ANIME_RECORDER_CACHE_OUTPUT = CACHE_FOLDER + '/animerecorder'
 ANIVERSE_CACHE_OUTPUT = CACHE_FOLDER + '/aniverse'
 MOCA_NEWS_CACHE_OUTPUT = CACHE_FOLDER + '/mocanews'
 NATALIE_CACHE_OUTPUT = CACHE_FOLDER + '/natalie'
 WEBNEWTYPE_CACHE_OUTPUT = CACHE_FOLDER + '/webnewtype'
 
+ANIME_RECORDER_MAX_PAGE = 10
 ANIVERSE_MAX_PAGE = 20
 NATALIE_MAX_PAGE = 10
 WEBNEWTYPE_MAX_PAGE = 10
 
+ANIME_RECORDER_CACHE_ID_LIMIT = 20
 ANIVERSE_CACHE_ID_LIMIT = 20
 NATALIE_CACHE_ID_LIMIT = 20
 
@@ -36,6 +40,61 @@ def get_soup(url, headers=None, encoding=None):
     except Exception as e:
         print(e)
     return ""
+
+
+def scan_animerecorder():
+    try:
+        last_latest_ids = []
+        if os.path.exists(ANIME_RECORDER_CACHE_OUTPUT):
+            with open(ANIME_RECORDER_CACHE_OUTPUT, 'r') as f:
+                last_latest_ids = f.read().split(';')
+
+        latest_ids = last_latest_ids.copy()
+        new_ids = []
+        stop = False
+        obj_list = []
+        for page in range(1, ANIME_RECORDER_MAX_PAGE + 1, 1):
+            page_url = 'https://www.anime-recorder.com/category/tvanime/'
+            if page > 1:
+                page_url = page_url + 'page/' + str(page) + '/'
+            soup = get_soup(page_url)
+            a_tags = soup.select('#inner-content article a')
+            for a_tag in a_tags:
+                if a_tag.has_attr('href') and a_tag.has_attr('title'):
+                    href = a_tag['href']
+                    if href.endswith('/'):
+                        href = href[0:len(href)-1]
+                    article_id = href.split('/')[-1]
+                    try:
+                        if article_id not in last_latest_ids:
+                            if article_id not in latest_ids:
+                                new_ids += [article_id]
+                            title = a_tag['title'].strip()
+                            obj_list.append({'id': article_id, 'title': title})
+                        else:
+                            stop = True
+                            break
+                    except:
+                        stop = True
+                        break
+            if stop:
+                break
+
+        with open(ANIME_RECORDER_OUTPUT, 'a+', encoding='utf-8', errors='ignore') as f:
+            for obj in reversed(obj_list):
+                f.write(obj['id'] + ' ' + obj['title'] + '\n')
+
+        latest_ids = new_ids + latest_ids
+        with open(ANIME_RECORDER_CACHE_OUTPUT, 'w+', encoding='utf-8') as f:
+            for i in range(min(len(latest_ids), ANIME_RECORDER_CACHE_ID_LIMIT)):
+                if i > 0:
+                    f.write(';' + latest_ids[i])
+                else:
+                    f.write(latest_ids[i])
+        print('Anime Recorder - Item(s) scanned: ' + str(len(obj_list)))
+    except Exception as e:
+        print('Error in Anime Recorder')
+        print(e)
 
 
 def scan_aniverse():
@@ -236,8 +295,8 @@ def run():
     if not os.path.exists(CACHE_FOLDER):
         os.makedirs(CACHE_FOLDER)
 
-    fns = [scan_aniverse, scan_mocanews, scan_natalie, scan_webnewtype]
-    with Pool(3) as p:
+    fns = [scan_animerecorder, scan_aniverse, scan_mocanews, scan_natalie, scan_webnewtype]
+    with Pool(5) as p:
         results = []
         for fn in fns:
             result = p.apply_async(run_process, (fn,))
